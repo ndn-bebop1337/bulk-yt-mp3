@@ -67,7 +67,7 @@ def main(argv):
             video_url = arg
 
         elif opt in ("-p", "--playlist"):
-            # Specify playlist to download
+            # Specify playlist to download 
             playlist_url = arg
 
         elif opt in ("-c", "--csv"):
@@ -83,7 +83,7 @@ def main(argv):
     print("")
     print("#################№#####")
     print("# Bulk YouTube to MP3 #")
-    print("# Version 0.1 Beta    #"
+    print("# Version 0.1 Beta    #")
     print("#######################")
     print("[I] Initializing program...")
 
