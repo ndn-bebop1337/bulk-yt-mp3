@@ -2,10 +2,9 @@
 
 """
 Bulk YouTube to MP3
-A simple utility for downloading MP3's from YouTube
-videos in bulk. Can download either individual videos or whole playlists
+A tool for the bulk downloading of YouTube videos as MP3 files. It has the capability to download either individual videos or entire playlists. By default, all downloads are stored in the users home directory. 
 
-Version 0.3 Beta
+Version 1.0
 By Brandon REDACTED
 """
 
@@ -24,7 +23,7 @@ def main(argv):
     """
 
     try:
-        opts, args = getopt.getopt(argv, "hvVo:s:p:", ["help", "version", "verbosity", "outfile=", "single=", "playlist="])
+        opts, args = getopt.getopt(argv, "hvVo:s:p:", ["help", "version", "verbosity", "outdir=", "single=", "playlist="])
 
     except getopt.GetoptError as err_msg:
         print(err_msg)
@@ -43,7 +42,7 @@ def main(argv):
             print("USAGE:")
             print("\t{} [-h] [-v] [-V] [-o OUTPUT_DIRECTORY] [-s VIDEO_URL] [-p PLAYLIST_URL] VIDEO_URLS".format(sys.argv[0]))
             print("")
-            print("A simple utility for downloading MP3's from YouTube videos in bulk. Can dowload either individual videos or whole playlists.")
+            print("A tool for the bulk downloading of YouTube videos as MP3 files. It has the capability to download either individual videos or entire playlists. By default, all downloads are stored in the users home directory.")
             print("")
             print("ARGUMENTS:")
             print("\t-h, --help/tDisplay the help message")
@@ -57,7 +56,7 @@ def main(argv):
         elif opt in ("-v", "--version"):
             # Display the version message and exit
             print("Bulk YouTube to MP3")
-            print("Version 0.3 Beta")
+            print("Version 1.0")
             print("By Brandon REDACTED")
             exit(0)
 
@@ -65,7 +64,7 @@ def main(argv):
             # Enable verbosity
             verbosity = True
 
-        elif opt in ("-o", "--outfile"):
+        elif opt in ("-o", "--outdir"):
             # Specify output directory
             outdir = arg
 
@@ -91,7 +90,7 @@ def main(argv):
     print("")
     print("#################№#####")
     print("# Bulk YouTube to MP3 #")
-    print("# Version 0.3 Beta    #")
+    print("# Version 1.0         #")
     print("#######################")
     print("[I] Initializing program...")
 
@@ -105,6 +104,9 @@ def main(argv):
             print("[DEBUGGING] Sanatizing user specified output directory...")
 
         outdir = data_validator.sanatize_path(outdir)
+
+    # Tell the user where the output directory is
+    print("[I] Output directory set to: {}".format(outdir))
     
 
     # Initialize a new download manager
@@ -136,6 +138,9 @@ def main(argv):
         
         # Parse the playlist
         video_list = download_manager.parse_playlist(playlist_url)
+
+        # Tell the user how many videos are in the playlist
+        print("[I] This playlist has {} videos in it. Beginning download...".format(len(video_list)))
 
         for row in video_list:
             print("[I] Downloading {0} as {1}...".format(row[0], row[1]))

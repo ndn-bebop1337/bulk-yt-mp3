@@ -130,10 +130,6 @@ class DownloadManager(object):
         # Get the video urls
         video_urls = playlist.video_urls
 
-        # Verbose output
-        if self.verbosity == True:
-            print("[DEBUGGING] Number of videos in playlist: {}".format(len(playlist.videos)))
-
         # Loop through all the videos individually to create url/name tuples to append to video list
         c = 0
         for video in playlist.videos:

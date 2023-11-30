@@ -41,7 +41,7 @@ class Validator(object):
 
     # Check if specified path is invalid, and if so, sanatize it
     if is_valid_filepath(file_path) == False:
-      clean_file_path = sanatize_filepath(file_path)
+      clean_file_path = sanitize_filepath(file_path)
 
       # Verbose output
       if self.verbosity == True:
