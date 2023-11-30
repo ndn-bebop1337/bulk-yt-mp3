@@ -1,7 +1,7 @@
 # lib/manager.py
 # Handle all tasks related to downloading
 
-
+import os
 from pytube import YouTube
 from pytube import Playlist
 from pytube.cli import on_progress
@@ -25,7 +25,7 @@ class DownloadManager(object):
         Arguments:
             self - self - This object
             verbosity - bool - Enable verbose output
-            validator - Validator object - Data validation tool
+            data_validator - Validator object - Data validation tool
         """
 
         self.verbosity = verbosity
@@ -86,17 +86,14 @@ class DownloadManager(object):
         return playlist_title
     
 
-    def download_single_video(self, video_url, file_name):
+    def download_single_video(self, video_url, file_path):
         """ Download the MP3 file of a video
 
         Arguments:
             self - self - This object
             video_url - string - URL of the video
-            file_name - string - Name for the MP3 file
+            file_path - string - Name for the MP3 file
         """
-
-        # Full path to new MP3 file
-        file_path = "{0}{1}".format(self.outdir, file_name)
 
         # Verbose output
         if self.verbosity == True:
@@ -108,10 +105,13 @@ class DownloadManager(object):
             stream = video.streams.filter(only_audio=True).first()
             stream.download(filename=file_path)
 
+            # Output message
+            print("\t[i] {0} Successfully downloaded ({1} bytes).".format(file_path, os.path.getsize(file_path)))
+
         except KeyError as err_msg:
             raise Exception(err_msg)
     
-    def parse_playlist(self, playlist_url):
+    def parse_playlist(self, playlist_url, playlist_download_directory):
         """ Parse a playlist to download from
         
         Arguments:
@@ -119,7 +119,7 @@ class DownloadManager(object):
             playlist_url - string - URL to playlist
 
         Returns:
-            video_list - list - A list of video url/name tuples
+            video_list - list - A list of video url/title/filename tuples
         """
 
         video_list = []
@@ -133,7 +133,7 @@ class DownloadManager(object):
         # Loop through all the videos individually to create url/name tuples to append to video list
         c = 0
         for video in playlist.videos:
-            current_video = (video_urls[c], "{}.mp3".format(video.title))
+            current_video = (video_urls[c], video.title, "{0}/{1}.mp3".format(playlist_download_directory, video.title))
             video_list.append(current_video)
 
         return video_list
