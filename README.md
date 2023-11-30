@@ -1,5 +1,5 @@
 # Bulk YouTube To MP3
-## Version 1.1 
+## Version 1.2
 ## By Brandon REDACTED
 ---
 ### About

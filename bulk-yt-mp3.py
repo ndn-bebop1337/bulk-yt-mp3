@@ -4,7 +4,7 @@
 Bulk YouTube to MP3
 A tool for the bulk downloading of YouTube videos as MP3 files. It has the capability to download either individual videos or entire playlists. By default, all downloads are stored in the users home directory. 
 
-Version 1.1
+Version 1.2
 By Brandon REDACTED
 """
 
@@ -15,17 +15,24 @@ import getopt
 import threading
 from lib import manager
 from lib import validator
+from lib import tag_editor
 
-def process_queued_videos(verbosity, use_threading, download_manager, data_validator, video_queue):
+def process_queued_videos(verbosity, use_threading, add_tags, download_manager, data_validator, video_queue, tag_info_list):
     """ Download all queued videos and create threads if enabled
 
     Arguments:
         verbosity - bool - Verbose output
         use_threading - bool - Use multithreading
+        add_tags - bool - Says whether to add tags or not
         download_manager - Manager object - Download management tool
         data_validator - Validator object - Data validation too
         video_queue - list of tuples - A list of video url/title/filename tuples
+        tag_info_list - list of tuples - Tag information
     """
+
+    # Create a new tag editor, if applicable
+    if add_tags == True:
+        metadata_editor = tag_editor.Editor(verbosity)
 
     # If multithreading is enabled
     if use_threading == True:
@@ -34,11 +41,22 @@ def process_queued_videos(verbosity, use_threading, download_manager, data_valid
 
         # Output message
         print("[I] Generating download threads...")
+
+        # Initialize a list to associate file names and tag info, if applicable
+        if add_tags == True:
+            file_tag_list = []
         
         # Create a new thread for each video and add it to the list
+        c = 0
         for video in video_queue:
             new_thread = threading.Thread(target=download_manager.download_single_video, args=(video[0], video[2]))
             thread_list.append(new_thread)
+
+            # Append the resulting filename and its tag info to the list, if applicable
+            if add_tags == True:
+                tag_info = tag_info_list[c].strip("[]").split(";")
+                file_tag_list.append((video[2], tag_info))  
+            c = c + 1
 
             # Output message
             print("\t[i] Created thread for video: {}".format(video[0]))
@@ -51,14 +69,29 @@ def process_queued_videos(verbosity, use_threading, download_manager, data_valid
             thread.join()
 
         # Output message
-        print("[I] Downloads complete.")
+        print("[I] Downloads complete. Adding tags...")
+
+        # Add tags, if applicable
+        if add_tags == True:
+            for next_file in file_tag_list:
+                metadata_editor.add_tags(next_file[0], next_file[1])
 
     else:
         # Download normally
         print("[I] Downloads now in progress...")
+        c = 0
         for video in video_queue:
             print("\t[i] Downloading {0} ({1})".format(video[1], video[0]))
             download_manager.download_single_video(video[0], video[2])
+
+            if add_tags == True:
+                # Convert the tag info back into a list
+                tag_info = tag_info_list[c].strip("[]").split(";")
+
+                # Add tags
+                metadata_editor.add_tags(video[2], tag_info)
+            c = c + 1
+            
         
 def main(argv):
     """ Process command line arguments and control
@@ -69,7 +102,7 @@ def main(argv):
     """
 
     try:
-        opts, args = getopt.getopt(argv, "hvVmo:s:p:", ["help", "version", "verbosity", "multithreading", "outdir=", "single=", "playlist="])
+        opts, args = getopt.getopt(argv, "hvVmo:s:p:t:", ["help", "version", "verbosity", "multithreading", "outdir=", "single=", "playlist=", "tags="])
 
     except getopt.GetoptError as err_msg:
         print(err_msg)
@@ -85,13 +118,15 @@ def main(argv):
     outdir = "{}/".format(os.getenv("HOME"))
     video_urls = []
     playlist_url = None
+    add_tags = False
+    tag_info = None
 
     # Process options
     for opt, arg in opts:
         if opt in ("-h", "--help"):
             # Display the help message and exit
             print("USAGE:")
-            print("\t{} [-h] [-v] [-V] [-m] [-o OUTPUT_DIRECTORY] [-s VIDEO_URL] [-p PLAYLIST_URL] VIDEO_URLS".format(sys.argv[0]))
+            print("\t{} [-h] [-v] [-V] [-m] [-o OUTPUT_DIRECTORY] [-s VIDEO_URL] [-p PLAYLIST_URL] [-t TAG_INFO] VIDEO_URLS".format(sys.argv[0]))
             print("")
             print("A tool for the bulk downloading of YouTube videos as MP3 files. It has the capability to download either individual videos or entire playlists. By default, all downloads are stored in the users home directory.")
             print("")
@@ -103,12 +138,13 @@ def main(argv):
             print("\t-o, --outdir OUTPUT_DIRECTORY\tDirectory to output MP3's to")
             print("\t-s, --single VIDEO_URL\tDownload from single video")
             print("\t-p, --playlist PLAYLIST_URL\tDownload from playlist")
+            print("\t-t, --tags TAG_INFO\tAdd tags to MP3's. Tag info is passed as a list of tuples, see README for more info.")
             exit(0)
 
         elif opt in ("-v", "--version"):
             # Display the version message and exit
             print("Bulk YouTube to MP3")
-            print("Version 1.1")
+            print("Version 1.2")
             print("By Brandon REDACTED")
             exit(0)
 
@@ -132,6 +168,11 @@ def main(argv):
             # Specify playlist to download 
             playlist_url = arg
 
+        elif opt in ("-t", "--tags"):
+            # Add tags to MP3's
+            add_tags = True
+            tag_info = arg
+
         else:
             # Display error message and exit
             print("[E] No such argument: {}".format(opt))
@@ -146,7 +187,7 @@ def main(argv):
     print("")
     print("#######################")
     print("# Bulk YouTube to MP3 #")
-    print("# Version 1.1         #")
+    print("# Version 1.2         #")
     print("#######################")
     print("[I] Initializing program...")
 
@@ -224,6 +265,10 @@ def main(argv):
     # Output message
     print("[I] {} videos have been added to the queue.".format(len(video_queue)))
 
+    # Load tag info
+    with open(tag_info, "r") as f:
+        tag_info_list = f.readlines()
+
     # If the user wants to humor Bebops vanity
     if bebops_vain_ui_enhancements == True:
         print("[I] Finalizing queue...")
@@ -258,7 +303,7 @@ def main(argv):
         time.sleep(1)
 
     # Download all videos in the queue
-    process_queued_videos(verbosity, use_threading, download_manager, data_validator, video_queue)
+    process_queued_videos(verbosity, use_threading, add_tags, download_manager, data_validator, video_queue, tag_info_list)
 
 # Begin execution
 if __name__ == "__main__":

@@ -4,6 +4,7 @@
 .pythonlibs
 TODO.txt
 TESTDATA.txt
+tags.txt
 poetry.lock
 pyproject.toml
 
