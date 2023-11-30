@@ -1,9 +1,7 @@
 # lib/manager.py
 # Handle all tasks related to downloading
 
-import os
-import sys
-import csv
+
 from pytube import YouTube
 from pytube import Playlist
 from pytube.cli import on_progress
@@ -21,15 +19,17 @@ class DownloadManager(object):
         parse_playlist() - Parse a playlist to download from
     """
 
-    def __init__(self, verbosity):
+    def __init__(self, verbosity, data_validator):
         """ Initialize the object
 
         Arguments:
             self - self - This object
             verbosity - bool - Enable verbose output
+            validator - Validator object - Data validation tool
         """
 
         self.verbosity = verbosity
+        self.data_validator = data_validator
 
     def change_output_directory(self, outdir):
         """ Change download location
@@ -56,7 +56,7 @@ class DownloadManager(object):
             video_title - string - The title of the video
         """
 
-        video = YouTube(video_url)
+        video = self.data_validator.validate_video_url(video_url)
         video_title = video.title
 
         # Verbose output
@@ -104,7 +104,7 @@ class DownloadManager(object):
 
         # Attempt to download the MP3 file
         try:
-            video = YouTube(video_url, on_progress_callback=on_progress)
+            video = self.data_validator.validate_video_url(video_url)
             stream = video.streams.filter(only_audio=True).first()
             stream.download(filename=file_path)
 

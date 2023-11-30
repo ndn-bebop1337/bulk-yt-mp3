@@ -1,5 +1,12 @@
+# Replit
 .replit
 .upm
+.pythonlibs
+TODO.txt
+TESTDATA.txt
+poetry.lock
+pyproject.toml
+
 # Byte-compiled / optimized / DLL files 
  __pycache__/ 
  *.py[cod] 
