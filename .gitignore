@@ -3,8 +3,7 @@
 .upm
 .pythonlibs
 TODO.txt
-TESTDATA.txt
-tags.txt
+tests/
 poetry.lock
 pyproject.toml
 

@@ -8,7 +8,7 @@ class Editor(object):
 
   Methods:
     __init__() - Initialize the object
-    add_tags() - Add tags to an MP3 file
+    insert_metadata() - Adds provided thumbnail and tags to an MP3 file
   """
 
   def __init__(self, verbosity):
@@ -21,39 +21,49 @@ class Editor(object):
 
     self.verbosity = verbosity
 
-  def add_tags(self, mp3_file, tag_info):
-    """ Add tags to an MP3 file
-
+  def insert_metadata(self, mp3_file, metadata):
+    """ Adds thumbnail and tag information to an MP3 file
+    
     Arguments:
       self - self - This object
-      mp3_file - string - Path to MP3 file
-      tag_info - tuple - Tag info to add
-    """
-    
-    """ Tag information must be passed as a tuple with the following format:
-    (artist, title, album, genre)"""
+      mp3_file - filename - The file to add the metadata to
+      metadata - dict - The metadata to add
 
-    # Verbose output
-    if self.verbosity == True:
-      print("[DEBUGGING] Adding tags to {}...".format(mp3_file))
+    Returns:
+      tagged_mp3_file - filename - Name of the tagged MP3 file
+    """
 
     # Load the file and initialize the tags
-    song = eyed3.load(mp3_file)
-    eyed3.log.setLevel("ERROR")
-    song.initTag()
-    
+    open_mp3_file = eyed3.load(mp3_file)
+    open_mp3_file.initTag(version=(2, 3, 0))
 
-    # Add the tags
-    song.tag.artist = tag_info[0].strip("][")
-    song.tag.title = tag_info[1].strip("][")
-    song.tag.album = tag_info[2].strip("][")
-    song.tag.genre = tag_info[3].strip("][")
+    # If a thumbnail is present, open and read it as binary and set it
+    if metadata["thumbnail"] != None:
+      with open(metadata["thumbnail"], "rb") as thumbnail_file:
+        raw_thumbnail = thumbnail_file.read()
+
+      open_mp3_file.tag.images.set(3, raw_thumbnail, "image/jpeg", "cover")
+
+    # See if any other tags are present in the metadata dictionary and set the ones that are
+    if metadata["title"] != None:
+      open_mp3_file.tag.title = metadata["title"]
+    if metadata["artist"] != None:
+      open_mp3_file.tag.artist = metadata["artist"]
+    if metadata["album"] != None:
+      open_mp3_file.tag.album = metadata["album"]
+    if metadata["track_num"] != None:
+      open_mp3_file.tag.track_num = int(metadata["track_num"])
+    if metadata["recording_date"] != None:
+      format_year = eyed3.core.Date(int(metadata["recording_date"]))
+      open_mp3_file.tag.recording_date = format_year
+
+    # Save the changes and return tagged file name
+    open_mp3_file.tag.save()
+    tagged_mp3_file = mp3_file
+    return tagged_mp3_file
 
 
-    
-    # Verbose output
-    if self.verbosity == True:
-      print("\t[i] Artist: {}".format(str(song.tag.artist).strip('"')))
-      print("\t[i] Title: {}".format(str(song.tag.title).strip('""')))
-      print("\t[i] Album: {}".format(str(song.tag.album).strip('"')))
-      print("\t[i] Genre: {}".format(str(song.tag.genre).strip('"')))
+
+
+
+

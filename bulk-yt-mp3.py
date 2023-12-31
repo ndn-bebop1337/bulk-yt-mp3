@@ -4,7 +4,7 @@
 Bulk YouTube to MP3
 A tool for the bulk downloading of YouTube videos as MP3 files. It has the capability to download either individual videos or entire playlists. By default, all downloads are stored in the users home directory. 
 
-Version 1.2
+Version 1.5 (Sleep Deprived)
 By Brandon REDACTED
 """
 
@@ -14,26 +14,26 @@ import time
 import getopt
 import threading
 from lib import manager
-from lib import validator
 from lib import tag_editor
 
-def process_queued_videos(verbosity, use_threading, add_tags, download_manager, data_validator, video_queue, tag_info_list):
+def process_queued_videos(verbosity, use_threading, download_manager, video_queue):
     """ Download all queued videos and create threads if enabled
 
     Arguments:
         verbosity - bool - Verbose output
         use_threading - bool - Use multithreading
-        add_tags - bool - Says whether to add tags or not
         download_manager - Manager object - Download management tool
-        data_validator - Validator object - Data validation too
         video_queue - list of tuples - A list of video url/title/filename tuples
-        tag_info_list - list of tuples - Tag information
     """
+    # Initialize the tag editor
+    editor = tag_editor.Editor(verbosity)
 
-    # Create a new tag editor, if applicable
-    if add_tags == True:
-        metadata_editor = tag_editor.Editor(verbosity)
-
+    # Initialize the downloader
+    downloader = manager.Downloader(download_manager, editor)
+    
+    """
+    Logic for downloading queued videos with multithreading
+    """
     # If multithreading is enabled
     if use_threading == True:
         # Initialize a list of all threads
@@ -41,22 +41,11 @@ def process_queued_videos(verbosity, use_threading, add_tags, download_manager, 
 
         # Output message
         print("[I] Generating download threads...")
-
-        # Initialize a list to associate file names and tag info, if applicable
-        if add_tags == True:
-            file_tag_list = []
         
         # Create a new thread for each video and add it to the list
-        c = 0
         for video in video_queue:
-            new_thread = threading.Thread(target=download_manager.download_single_video, args=(video[0], video[2]))
-            thread_list.append(new_thread)
-
-            # Append the resulting filename and its tag info to the list, if applicable
-            if add_tags == True:
-                tag_info = tag_info_list[c].strip("[]").split(";")
-                file_tag_list.append((video[2], tag_info))  
-            c = c + 1
+            new_thread = threading.Thread(target=downloader.download_and_convert, args=(video[0], video[1], video[2], video[3]))
+            thread_list.append(new_thread) 
 
             # Output message
             print("\t[i] Created thread for video: {}".format(video[0]))
@@ -71,27 +60,12 @@ def process_queued_videos(verbosity, use_threading, add_tags, download_manager, 
         # Output message
         print("[I] Downloads complete. Adding tags...")
 
-        # Add tags, if applicable
-        if add_tags == True:
-            for next_file in file_tag_list:
-                metadata_editor.add_tags(next_file[0], next_file[1])
-
     else:
         # Download normally
         print("[I] Downloads now in progress...")
-        c = 0
         for video in video_queue:
             print("\t[i] Downloading {0} ({1})".format(video[1], video[0]))
-            download_manager.download_single_video(video[0], video[2])
-
-            if add_tags == True:
-                # Convert the tag info back into a list
-                tag_info = tag_info_list[c].strip("[]").split(";")
-
-                # Add tags
-                metadata_editor.add_tags(video[2], tag_info)
-            c = c + 1
-            
+            downloader.download_and_convert(video[0], video[1], video[2], video[3])
         
 def main(argv):
     """ Process command line arguments and control
@@ -108,18 +82,13 @@ def main(argv):
         print(err_msg)
         exit(0)
 
-    """ Bebop is high as shit and likes to be extra, enable this to add a purely aesthetic wait/input to the UI that just makes it look cooler. Any sane person has this set to False.
-    """
-    bebops_vain_ui_enhancements = False
-
     # Set variables with default values
     verbosity = False
     use_threading = False
-    outdir = "{}/".format(os.getenv("HOME"))
+    outdir = os.getcwd()
     video_urls = []
     playlist_url = None
-    add_tags = False
-    tag_info = None
+    tag_data_file = None
 
     # Process options
     for opt, arg in opts:
@@ -144,7 +113,7 @@ def main(argv):
         elif opt in ("-v", "--version"):
             # Display the version message and exit
             print("Bulk YouTube to MP3")
-            print("Version 1.2")
+            print("Version 1.5 (Sleep Deprived)")
             print("By Brandon REDACTED")
             exit(0)
 
@@ -170,8 +139,7 @@ def main(argv):
 
         elif opt in ("-t", "--tags"):
             # Add tags to MP3's
-            add_tags = True
-            tag_info = arg
+            tag_data_file = arg
 
         else:
             # Display error message and exit
@@ -185,57 +153,64 @@ def main(argv):
 
     # Display banner message
     print("")
-    print("#######################")
-    print("# Bulk YouTube to MP3 #")
-    print("# Version 1.2         #")
-    print("#######################")
+    print("################################")
+    print("# Bulk YouTube to MP3          #")
+    print("# Version 1.5 (Sleep Deprived) #")
+    print("################################")
     print("[I] Initializing program...")
-
-    # Create a new instance of the data validator
-    data_validator = validator.Validator(verbosity)
-
-    # Sanatize the output directory if it is not the default
-    if outdir != "{}/".format(os.getenv("HOME")):
-        # Make sure the last character is a slash, and if not, append one
-        if outdir.endswith("/") == False:
-            fixed_outdir = outdir + "/"
-            outdir = fixed_outdir
-        
-        # Verbose output
-        if verbosity == True:
-            print("[DEBUGGING] Sanatizing user specified output directory...")
-
-        outdir = data_validator.sanatize_path(outdir)
     
     # Initialize a new download manager
-    download_manager = manager.DownloadManager(verbosity, data_validator)
+    download_manager = manager.DownloadManager(verbosity)
 
-    # Specify the download location
-    download_manager.change_output_directory(outdir)
+    # Move script execution to the designated output directory, if applicable
+    if outdir != os.getcwd():
+        os.chdir(outdir)
 
-    # Tell the user where the output directory is
-    print("[I] Output directory set to: {}".format(outdir))
+    # If a tag data file is present, parse it for inclusion in the video queue
+    if tag_data_file != None:
+        parsed_tag_data = download_manager.parse_tag_data_file(tag_data_file)
 
-    # Initialize the video queue
+    """
+    All videos to be downloaded must be added to the queue, which is a list of tuples containing the video's URL, its title, the desired filename for the end download, and a variable containing either Nonetype or tag data, if it was provided. If the video is to be downloaded into a subdirectory inside of the main output directory, say in the case of an album playlist, said subdirectory must be appended to the beginning of the filename. 
+    """
+    
+    # Initialize queue
     video_queue = []
 
-    # Handle individual videos and add them to the queue
+    """
+    Logic for handling and queueing individual videos, specified with either the -s/--single option, or passed as a program argument. This essentially fetches the title associated with each YouTube video URL, builds a filename based off of it and the output directory, and adds all of this data to the download queue
+    """
+    
+    # Handle individual videos
     if len(video_urls) > 0:
         # Output message
         print("[I] Adding video(s) to queue...")
-        
+
+        c = 0
         for video_url in video_urls:
+            # If tag data was provided, prepare it for adding to the videos tuple
+            if tag_data_file != None:
+                video_metadata = parsed_tag_data[c]
+            else:
+                # If not, create a variable to act as a placeholder
+                video_metadata = None
+                
             # Get the video title
             video_title = download_manager.get_video_title(video_url)
 
-            # Create the URL/title tuple for and add the video to the queue
-            current_vid = (video_url, video_title, "{}.mp3".format(video_title))
+            # Build the filename and queue video
+            video_filename = os.path.join(outdir, "{}.mp3".format(video_title))
+            current_vid = (video_url, video_title, video_filename, video_metadata)
             video_queue.append(current_vid)
 
-            # Output message
+            # Output m uessage
             print("\t[i] \"{0}\" added to queue.".format(video_title))
 
+            c += 1
 
+    """
+    Logic for building the queue from playlists specified with -p/--playlist. It retrieves the playlists title and creates a subdirectory with it, parses the playlist to retrieve the URL and title of all its videos, then gives each video a filename derived from the subdirectory name and the video's title before adding to the queue
+    """
     # Parse playlists and add their videos to the queue
     if playlist_url != None:
         # Get the playlist title
@@ -249,37 +224,37 @@ def main(argv):
         print("[I] Name of playlist: {}".format(playlist_title))
         
         # Parse the playlist and add the videos to the queue
-        parsed_video_list = download_manager.parse_playlist(playlist_url, playlist_download_directory)
+        parsed_video_list = download_manager.parse_playlist(playlist_url)
 
         # Tell the user how many videos are in the playlist and where the outdir is
         print("[I] Number of videos in playlist: {}".format(len(parsed_video_list)))
         print("[I] Download location for playlist videos: {}".format(playlist_download_directory))
         print("[I] Adding video(s) to queue...")
-        
-        for playlist_video in parsed_video_list:
-            video_queue.append(playlist_video)
 
+        # Add a filename for each video from the playlist
+        c = 0
+        for video in parsed_video_list:
+            # If tag data was provided, prepare it for adding to the videos tuple
+            if tag_data_file != None:
+                video_metadata = parsed_tag_data[c]
+            else:
+                # If not, create a variable to act as a placeholder
+                video_metadata = None
+                
+            # Combine the download subdirectory and title to create the filename
+            video_filename = os.path.join(playlist_download_directory, "{}.mp3".format(video[1]))
+
+            # Build the tuple and add to queue
+            current_video = (video[0], video[1], video_filename, video_metadata)
+            video_queue.append(current_video)
+ 
             # Output message
-            print("\t[i] \"{}\" added to queue.".format(playlist_video[1]))
+            print("\t[i] \"{}\" added to queue.".format(video[1]))
+
+            c += 1
 
     # Output message
     print("[I] {} videos have been added to the queue.".format(len(video_queue)))
-
-    # Load tag info
-    with open(tag_info, "r") as f:
-        tag_info_list = f.readlines()
-
-    # If the user wants to humor Bebops vanity
-    if bebops_vain_ui_enhancements == True:
-        print("[I] Finalizing queue...")
-        time.sleep(3)
-        print("\t[i] ...Done. Ready to begin downloads.")
-        print("")
-        input("[***] Press [ENTER] to initiate download) [***]")
-        os.system("clear")
-
-    else:
-        print("")
         
     print("#######################")
     print("#  STARTING DOWNLOAD  #")
@@ -298,12 +273,9 @@ def main(argv):
         
     print("#######################")
 
-    # If its enabled, Bebops vanity continues
-    if bebops_vain_ui_enhancements == True:
-        time.sleep(1)
 
     # Download all videos in the queue
-    process_queued_videos(verbosity, use_threading, add_tags, download_manager, data_validator, video_queue, tag_info_list)
+    process_queued_videos(verbosity, use_threading, download_manager, video_queue)
 
 # Begin execution
 if __name__ == "__main__":
